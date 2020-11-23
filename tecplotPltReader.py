@@ -253,7 +253,7 @@ def read_header(byte_list):
 
     zones=list()
     for zone in zone_markers:
-        zones.append(parse_zone(byte_list[start+zone:], var_names))
+        zones.append(parse_zone(byte_list[start+zone+4:], var_names))
 
     # Now find and read zones
     #zones = find_zones(byte_list[next_byte+start:])
