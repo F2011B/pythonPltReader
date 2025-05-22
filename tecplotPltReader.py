@@ -1,6 +1,9 @@
 import construct
 import numpy as np
 
+ZONE_MARKER = 299.0
+HEADER_END_MARKER = 357.0
+
 def read_tec_str(byte_list):
     if not len(byte_list) == 4:
         return {'Correct' : False}
@@ -199,7 +202,7 @@ def find_zones(byte_list, eo_header):
 
         next_byte = (counter + 1) * 4
         zone_marker = construct.Float32l.parse(byte_list[first_byte:next_byte])
-        if zone_marker == 299.0:
+        if zone_marker == ZONE_MARKER:
             print('Zone Found')
             print(first_byte)
             zone_makers.append(first_byte)
@@ -214,7 +217,7 @@ def find_end_of_header(byte_list):
         first_byte = counter * 4
         eo_of_header_byte = first_byte +4
         eof_value = construct.Float32l.parse(byte_list[first_byte:eo_of_header_byte])
-        if eof_value == 357.0:
+        if eof_value == HEADER_END_MARKER:
             end_of_header_found = True
 
         counter = counter +1
@@ -282,7 +285,7 @@ def find_zones_data(byte_list, num_zones, offset):
 
         next_byte = (counter + 1) * 4
         zone_marker = construct.Float32l.parse(byte_list[first_byte:next_byte])
-        if zone_marker == 299.0:
+        if zone_marker == ZONE_MARKER:
             count_zones = count_zones + 1
             zone_makers.append(first_byte+offset)
         counter = counter + 1
