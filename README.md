@@ -2,13 +2,12 @@ Python Tecplot PLT Reader
 ========================
 
 This project provides Python utilities to parse Tecplot binary (`.plt`) files.
-It uses the [`construct`](https://pypi.org/project/construct/) library to
-interpret the binary structures and [`numpy`](https://numpy.org/) for handling
+It uses Python's builtin [`struct`](https://docs.python.org/3/library/struct.html)
+module to interpret the binary structures and [`numpy`](https://numpy.org/) for handling
 arrays of values.
 
 Requirements
 ------------
-* construct
 * numpy
 
 Example

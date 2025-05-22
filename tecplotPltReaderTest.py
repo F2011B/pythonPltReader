@@ -1,6 +1,5 @@
 import unittest
 import tecplotPltReader
-import construct
 
 
 class TestStringMethods(unittest.TestCase):
