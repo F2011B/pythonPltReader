@@ -2,16 +2,51 @@ import construct
 import numpy as np
 
 def read_tec_str(byte_list):
+    """Decode a single 4 byte Tecplot string block.
+
+    Tecplot encodes strings as a sequence of four byte integers.  A
+    value of ``0`` denotes the end of the string while any other value
+    contains a single ASCII character in the first byte.  This helper
+    interprets such a block and returns the character (if any) together
+    with information whether the terminator was reached.
+
+    Parameters
+    ----------
+    byte_list : bytes
+        Exactly four bytes to parse.
+
+    Returns
+    -------
+    dict
+        Dictionary describing the parsed block.  On success ``Correct``
+        is ``True`` and the keys ``str`` and ``End`` contain the decoded
+        character and termination flag respectively.
+    """
     if not len(byte_list) == 4:
         return {'Correct' : False}
 
     check = construct.Int32ul.parse(byte_list)
     if not check == 0:
         return {'Correct':True, 'str': chr(byte_list[0]), 'End':False}
-    return {'Correct':True, 'str': '','End':True}
+    return {'Correct':True, 'str': '', 'End':True}
 
 
 def construct_qword(byte_list):
+    """Construct a 64‑bit value and decode its character representation.
+
+    Parameters
+    ----------
+    byte_list : bytes
+        Sequence containing at least eight bytes.
+
+    Returns
+    -------
+    dict
+        Mapping with the keys ``qword`` (unsigned 64 bit integer),
+        ``I32ul`` (signed 32 bit integer value of the first four bytes),
+        ``uni_chars`` (ASCII characters of the bytes) and ``tec_str``
+        containing the two characters interpreted via :func:`read_tec_str`.
+    """
     if len(byte_list) < 8:
         return  {'Correct':False}
     qword=0
@@ -39,6 +74,18 @@ def construct_qword(byte_list):
 
 
 def read_magic_number(byte_list):
+    """Read the 8‑byte Tecplot magic number from ``byte_list``.
+
+    Parameters
+    ----------
+    byte_list : bytes
+        Byte sequence that begins with the magic number.
+
+    Returns
+    -------
+    dict
+        Result dictionary as returned by :func:`construct_qword`.
+    """
     if len(byte_list) < 8:
         return {'Correct':False}
     magic_num = construct_qword(byte_list[0:8])
@@ -46,6 +93,25 @@ def read_magic_number(byte_list):
 
 
 def get_title(byte_list, offset=0):
+    """Read a zero terminated Tecplot string starting at ``byte_list``.
+
+    The function reads consecutive 8‑byte blocks using :func:`read_tec_str`
+    until the end marker is found and assembles the contained characters
+    into a Python string.
+
+    Parameters
+    ----------
+    byte_list : bytes
+        Byte sequence beginning with a Tecplot encoded string.
+    offset : int, optional
+        Unused parameter kept for compatibility.
+
+    Returns
+    -------
+    dict
+        ``title`` contains the decoded string and ``next_byte`` the
+        number of bytes consumed.
+    """
     title = ''
     title_end = False
     counter = 0
@@ -74,8 +140,23 @@ def get_title(byte_list, offset=0):
     return {'Correct':True,'title':title,'next_byte':next_rel_byte}
 
 def read_var_names(byte_list, num_vars):
+    """Read ``num_vars`` variable names from ``byte_list``.
+
+    Parameters
+    ----------
+    byte_list : bytes
+        Byte sequence directly following the variable count field.
+    num_vars : int
+        Number of variables to parse.
+
+    Returns
+    -------
+    tuple
+        A tuple ``(names, offset)`` where ``names`` is a list of strings
+        and ``offset`` is the number of bytes consumed.
+    """
     var_names = list()
-    next_byte=0
+    next_byte = 0
     for i in range(num_vars):
         qword = get_title(byte_list[next_byte:])
         if not qword['Correct']:
@@ -88,12 +169,26 @@ def read_var_names(byte_list, num_vars):
 
 
 def parse_zone(byte_list, num_vars):
-    FeZone = lambda x: x>0
+    """Parse a zone definition block.
 
-    zone={}
+    Parameters
+    ----------
+    byte_list : bytes
+        Byte sequence starting at a zone marker.
+    num_vars : int
+        Number of variables defined in the dataset.
+
+    Returns
+    -------
+    dict
+        Dictionary containing the parsed zone information.
+    """
+    FeZone = lambda x: x > 0
+
+    zone = {}
     zone_name = get_title(byte_list)
-    if zone_name['Correct']==False:
-        return {'Correct':False}
+    if zone_name['Correct'] == False:
+        return {'Correct': False}
 
     zone['ZoneName'] =  zone_name['title']
 
@@ -188,6 +283,20 @@ def parse_zone(byte_list, num_vars):
 
 
 def find_zones(byte_list, eo_header):
+    """Return offsets of zone markers inside the header.
+
+    Parameters
+    ----------
+    byte_list : bytes
+        Byte sequence containing the header section.
+    eo_header : int
+        Offset where the header ends.
+
+    Returns
+    -------
+    list
+        List of relative offsets where a zone marker (299.0) was found.
+    """
     counter = 0
     end_of_header = False
     zone_makers = list()
@@ -208,20 +317,51 @@ def find_zones(byte_list, eo_header):
     return zone_makers
 
 def find_end_of_header(byte_list):
+    """Locate the end-of-header sentinel in ``byte_list``.
+
+    The header ends with the 32‑bit float value ``357.0``.  The returned
+    value is the offset immediately after this marker relative to
+    ``byte_list``.
+
+    Parameters
+    ----------
+    byte_list : bytes
+        Portion of the file starting at the beginning of the header.
+
+    Returns
+    -------
+    int
+        Offset to the byte following the end-of-header marker.
+    """
     end_of_header_found = False
     counter = 0
     while not end_of_header_found:
         first_byte = counter * 4
-        eo_of_header_byte = first_byte +4
+        eo_of_header_byte = first_byte + 4
         eof_value = construct.Float32l.parse(byte_list[first_byte:eo_of_header_byte])
         if eof_value == 357.0:
             end_of_header_found = True
 
-        counter = counter +1
+        counter = counter + 1
     return eo_of_header_byte
 
 def read_header(byte_list):
-    file_type_name=['FULL','GRID','SOLUTION']
+    """Parse the Tecplot binary header information.
+
+    Parameters
+    ----------
+    byte_list : bytes
+        Entire content of the file or the portion starting at the
+        beginning of the header.
+
+    Returns
+    -------
+    dict
+        Dictionary containing general header information such as the
+        magic number, byte order, title, variable names and parsed zone
+        descriptors.
+    """
+    file_type_name = ['FULL', 'GRID', 'SOLUTION']
 
     magic_num = read_magic_number(byte_list[0:8])
     if not magic_num['Correct']:
@@ -270,7 +410,23 @@ def read_header(byte_list):
             'Zones': zones}
 
 def find_zones_data(byte_list, num_zones, offset):
-    count_zones=0
+    """Find the zone markers within the data section.
+
+    Parameters
+    ----------
+    byte_list : bytes
+        Data portion of the file following the header.
+    num_zones : int
+        Number of zones expected.
+    offset : int
+        Absolute offset of ``byte_list`` within the file.
+
+    Returns
+    -------
+    list
+        List of absolute offsets for each zone marker.
+    """
+    count_zones = 0
     counter = 0
     all_zones_found = False
     zone_makers = list()
@@ -284,18 +440,37 @@ def find_zones_data(byte_list, num_zones, offset):
         zone_marker = construct.Float32l.parse(byte_list[first_byte:next_byte])
         if zone_marker == 299.0:
             count_zones = count_zones + 1
-            zone_makers.append(first_byte+offset)
+            zone_makers.append(first_byte + offset)
         counter = counter + 1
     return zone_makers
 
 
 def read_zones(byte_list, zone_markers, header, binary_file):
+    """Read zone data according to the information in ``header``.
+
+    Parameters
+    ----------
+    byte_list : bytes
+        Entire file content.
+    zone_markers : list
+        Absolute offsets for each zone marker.
+    header : dict
+        Parsed header dictionary.
+    binary_file : file object
+        Original binary file handle (used for ``seek`` calls).
+
+    Returns
+    -------
+    list
+        List with one dictionary for each zone containing the raw data and
+        assorted metadata.
+    """
     var_names = header['VarNames']
     var_dict = {}
     zone_vars = list()
     start_byte = 0
     zone_counter = 0
-    zones_list=[]
+    zones_list = []
     for zone in zone_markers:
         zone_data={}
         start_byte = zone + 4
@@ -417,6 +592,22 @@ def read_zones(byte_list, zone_markers, header, binary_file):
 
 
 def read_data(byte_list, header, binary_file):
+    """Read zone data using information from ``header``.
+
+    Parameters
+    ----------
+    byte_list : bytes
+        Full content of the Tecplot file.
+    header : dict
+        Parsed header as returned by :func:`read_header`.
+    binary_file : file object
+        Handle to the underlying binary file.
+
+    Returns
+    -------
+    dict
+        Dictionary containing zone markers and the list of parsed zones.
+    """
     eo_header = header['EofHeader']
     num_zones = len(header['ZoneMarkers'])
     zone_markers = find_zones_data(byte_list[eo_header:], num_zones, eo_header)
@@ -428,8 +619,8 @@ def read_data(byte_list, header, binary_file):
     print(len(byte_list))
 
 
-    return {'ZoneMarkers':zone_markers,
-            'Zones':zones_list}
+    return {'ZoneMarkers': zone_markers,
+            'Zones': zones_list}
 
 
 
