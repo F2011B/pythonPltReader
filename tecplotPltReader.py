@@ -1,5 +1,6 @@
 import construct
 import numpy as np
+import logging
 
 def read_tec_str(byte_list):
     if not len(byte_list) == 4:
@@ -200,8 +201,8 @@ def find_zones(byte_list, eo_header):
         next_byte = (counter + 1) * 4
         zone_marker = construct.Float32l.parse(byte_list[first_byte:next_byte])
         if zone_marker == 299.0:
-            print('Zone Found')
-            print(first_byte)
+            logging.debug('Zone Found')
+            logging.debug(first_byte)
             zone_makers.append(first_byte)
         counter = counter + 1
 
@@ -356,8 +357,8 @@ def read_zones(byte_list, zone_markers, header, binary_file):
             max_val[var_with_min_max] = construct.Float64l.parse(byte_list[start_byte:end_byte])
             start_byte = end_byte
 
-        print('start_data_list')
-        print(start_byte)
+        logging.debug('start_data_list')
+        logging.debug(start_byte)
 
         zone_data['Min_Vals'] = min_val
         zone_data['Max_Vals'] = max_val
@@ -365,18 +366,18 @@ def read_zones(byte_list, zone_markers, header, binary_file):
         Imax = header['Zones'][zone_counter]['Imax']
         Jmax = header['Zones'][zone_counter]['Jmax']
         Kmax = header['Zones'][zone_counter]['Kmax']
-        print('Imax in read Zone')
-        print(Imax)
+        logging.debug('Imax in read Zone')
+        logging.debug(Imax)
         binary_file.seek(0)
-        print('NumValuesPerVariable')
-        print(Imax * Jmax * Kmax)
+        logging.debug('NumValuesPerVariable')
+        logging.debug(Imax * Jmax * Kmax)
 
 
 
 
         for name in var_names:
-            print('StartByte')
-            print(start_byte)
+            logging.debug('StartByte')
+            logging.debug(start_byte)
             data = np.frombuffer(byte_list, dtype='float32',
                                       count=Imax * Jmax * Kmax,
                                       offset=start_byte)
@@ -409,8 +410,8 @@ def read_zones(byte_list, zone_markers, header, binary_file):
 
         zones_list.append(zone_data)
 
-        print('start_data_list')
-        print(start_byte)
+        logging.debug('start_data_list')
+        logging.debug(start_byte)
         zone_counter = zone_counter + 1
 
     return zones_list
@@ -424,8 +425,8 @@ def read_data(byte_list, header, binary_file):
     zones_list = read_zones(byte_list, zone_markers, header, binary_file)
 
 
-    print('len_byte_list')
-    print(len(byte_list))
+    logging.debug('len_byte_list')
+    logging.debug(len(byte_list))
 
 
     return {'ZoneMarkers':zone_markers,
