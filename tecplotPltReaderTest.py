@@ -27,7 +27,7 @@ class TestStringMethods(unittest.TestCase):
         self.assertEqual(mag_res['Correct'], True)
         self.assertEqual(mag_res['uni_chars'], '#!TDV112')
 
-    def test_read_headerr(self):
+    def test_read_header(self):
         #[hex(0x12345678 >> i & 0xff) for i in (24, 16, 8, 0)]
         mag_res = tecplotPltReader.read_header(b"\x23\x21\x54\x44\x56\x31\x31\x32"
                                                b"\x01\x00\x00\x00\x00\x00\x00\x00"        
