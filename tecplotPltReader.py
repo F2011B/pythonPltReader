@@ -289,7 +289,7 @@ def find_zones_data(byte_list, num_zones, offset):
     return zone_makers
 
 
-def read_zones(byte_list, zone_markers, header, binary_file):
+def read_zones(byte_list, zone_markers, header):
     var_names = header['VarNames']
     var_dict = {}
     zone_vars = list()
@@ -367,7 +367,6 @@ def read_zones(byte_list, zone_markers, header, binary_file):
         Kmax = header['Zones'][zone_counter]['Kmax']
         print('Imax in read Zone')
         print(Imax)
-        binary_file.seek(0)
         print('NumValuesPerVariable')
         print(Imax * Jmax * Kmax)
 
@@ -416,12 +415,12 @@ def read_zones(byte_list, zone_markers, header, binary_file):
     return zones_list
 
 
-def read_data(byte_list, header, binary_file):
+def read_data(byte_list, header):
     eo_header = header['EofHeader']
     num_zones = len(header['ZoneMarkers'])
     zone_markers = find_zones_data(byte_list[eo_header:], num_zones, eo_header)
 
-    zones_list = read_zones(byte_list, zone_markers, header, binary_file)
+    zones_list = read_zones(byte_list, zone_markers, header)
 
 
     print('len_byte_list')
