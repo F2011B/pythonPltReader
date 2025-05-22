@@ -1,6 +1,30 @@
-import construct
-import numpy as np
+import struct
 import logging
+
+try:
+    import numpy as np
+except ImportError:  # numpy is optional for tests
+    np = None
+
+
+def _i32u(data):
+    return struct.unpack('<I', data)[0]
+
+
+def _i32s(data):
+    return struct.unpack('<i', data)[0]
+
+
+def _i16s(data):
+    return struct.unpack('<h', data)[0]
+
+
+def _f32(data):
+    return struct.unpack('<f', data)[0]
+
+
+def _f64(data):
+    return struct.unpack('<d', data)[0]
 
 def read_tec_str(byte_list):
     """Decode a single 4 byte Tecplot string block.
@@ -26,7 +50,7 @@ def read_tec_str(byte_list):
     if not len(byte_list) == 4:
         return {'Correct' : False}
 
-    check = construct.Int32ul.parse(byte_list)
+    check = _i32u(byte_list)
     if not check == 0:
         return {'Correct':True, 'str': chr(byte_list[0]), 'End':False}
     return {'Correct':True, 'str': '', 'End':True}
@@ -67,7 +91,7 @@ def construct_qword(byte_list):
         qword=qword + (byte_list[i] << shiftval)
         uni_chars=uni_chars+str(chr(byte_list[i]))
 
-    lei32=construct.Int32sl.parse(byte_list)
+    lei32=_i32s(byte_list[:4])
 
 
     return {'Correct':True, 'qword':qword,'I32ul':lei32,
@@ -156,15 +180,14 @@ def read_var_names(byte_list, num_vars):
         A tuple ``(names, offset)`` where ``names`` is a list of strings
         and ``offset`` is the number of bytes consumed.
     """
-    var_names = list()
+    var_names = []
     next_byte = 0
-    for i in range(num_vars):
+    for _ in range(num_vars):
         qword = get_title(byte_list[next_byte:])
         if not qword['Correct']:
-            return {'Correct':False}
+            break
         var_names.append(qword['title'])
-        next_byte = next_byte + qword['next_byte']
-
+        next_byte += qword['next_byte']
 
     return var_names, next_byte
 
@@ -196,38 +219,32 @@ def parse_zone(byte_list, num_vars):
     byte_start = zone_name['next_byte']
     byte_end = zone_name['next_byte']+4
 
-    zone['ParentZone']= construct.Int32ul.parse(
-        byte_list[byte_start:byte_end])
+    zone['ParentZone']= _i32u(byte_list[byte_start:byte_end])
 
     byte_start = byte_start+4
     byte_end = byte_end + 4
 
-    zone['StrandID'] = construct.Int32ul.parse(
-        byte_list[byte_start:byte_end])
+    zone['StrandID'] = _i32u(byte_list[byte_start:byte_end])
 
     byte_start = byte_end
     byte_end = byte_end + 8
 
-    zone['SolutionTime'] = construct.Float64l.parse(
-        byte_list[byte_start:byte_end])
+    zone['SolutionTime'] = _f64(byte_list[byte_start:byte_end])
 
     byte_start = byte_end
     byte_end = byte_end + 4
 
-    zone['NotUsed'] = construct.Int32ul.parse(
-        byte_list[byte_start:byte_end])
+    zone['NotUsed'] = _i32u(byte_list[byte_start:byte_end])
 
     byte_start = byte_start + 4
     byte_end = byte_end + 4
 
-    zone['ZoneType'] = construct.Int32ul.parse(
-        byte_list[byte_start:byte_end])
+    zone['ZoneType'] = _i32u(byte_list[byte_start:byte_end])
 
     byte_start = byte_start + 4
     byte_end = byte_end + 4
 
-    zone['VarLoc'] = construct.Int32ul.parse(
-        byte_list[byte_start:byte_end])
+    zone['VarLoc'] = _i32u(byte_list[byte_start:byte_end])
 
     if zone['VarLoc'] == 1:
         byte_start = byte_start + 4
@@ -237,48 +254,40 @@ def parse_zone(byte_list, num_vars):
             byte_start = byte_start + i*4
             byte_end = byte_end + i*4
             varLocs.append(
-                           construct.Int32ul.parse(
-                           byte_list[byte_start:byte_end])
+                           _i32u(byte_list[byte_start:byte_end])
                           )
     byte_start = byte_start + 4
     byte_end = byte_end + 4
-    zone['RawFaceNeighbors'] = construct.Int32ul.parse(
-        byte_list[byte_start:byte_end])
+    zone['RawFaceNeighbors'] = _i32u(byte_list[byte_start:byte_end])
 
 
     byte_start = byte_start + 4
     byte_end = byte_end + 4
-    zone['UserdefinedFaceNeighbors'] = construct.Int32ul.parse(
-        byte_list[byte_start:byte_end])
+    zone['UserdefinedFaceNeighbors'] = _i32u(byte_list[byte_start:byte_end])
 
 
 
     if FeZone(zone['ZoneType']):
         byte_start = byte_start + 4
         byte_end = byte_end + 4
-        zone['RawFaceNeighbors'] = construct.Int32ul.parse(
-            byte_list[byte_start:byte_end])
+        zone['RawFaceNeighbors'] = _i32u(byte_list[byte_start:byte_end])
 
     if not FeZone(zone['ZoneType']):
         byte_start = byte_start + 4
         byte_end = byte_end + 4
-        zone['Imax'] = construct.Int32ul.parse(
-            byte_list[byte_start:byte_end])
+        zone['Imax'] = _i32u(byte_list[byte_start:byte_end])
 
         byte_start = byte_start + 4
         byte_end = byte_end + 4
-        zone['Jmax'] = construct.Int32ul.parse(
-            byte_list[byte_start:byte_end])
+        zone['Jmax'] = _i32u(byte_list[byte_start:byte_end])
 
         byte_start = byte_start + 4
         byte_end = byte_end + 4
-        zone['Kmax'] = construct.Int32ul.parse(
-            byte_list[byte_start:byte_end])
+        zone['Kmax'] = _i32u(byte_list[byte_start:byte_end])
 
     byte_start = byte_start + 4
     byte_end = byte_end + 4
-    zone['AuxdataNamePair'] = construct.Int32ul.parse(
-            byte_list[byte_start:byte_end])
+    zone['AuxdataNamePair'] = _i32u(byte_list[byte_start:byte_end])
     return zone
 
 
@@ -308,7 +317,9 @@ def find_zones(byte_list, eo_header):
             continue
 
         next_byte = (counter + 1) * 4
-        zone_marker = construct.Float32l.parse(byte_list[first_byte:next_byte])
+        if next_byte > len(byte_list):
+            break
+        zone_marker = _f32(byte_list[first_byte:next_byte])
         if zone_marker == 299.0:
             logging.debug('Zone Found')
             logging.debug(first_byte)
@@ -339,7 +350,9 @@ def find_end_of_header(byte_list):
     while not end_of_header_found:
         first_byte = counter * 4
         eo_of_header_byte = first_byte + 4
-        eof_value = construct.Float32l.parse(byte_list[first_byte:eo_of_header_byte])
+        if eo_of_header_byte > len(byte_list):
+            break
+        eof_value = _f32(byte_list[first_byte:eo_of_header_byte])
         if eof_value == 357.0:
             end_of_header_found = True
 
@@ -368,8 +381,8 @@ def read_header(byte_list):
     if not magic_num['Correct']:
         return {'Correct':False}
 
-    byte_order = construct.Int16sl.parse(byte_list[8:12])
-    file_type = construct.Int16sl.parse(byte_list[12:16])
+    byte_order = _i16s(byte_list[8:10])
+    file_type = _i16s(byte_list[12:14])
 
 
     title=''
@@ -378,7 +391,7 @@ def read_header(byte_list):
         title=title_res['title']
 
 
-    num_vars = construct.Int32sl.parse( byte_list[
+    num_vars = _i32s( byte_list[
                                         title_res['next_byte']+16:
                                         (title_res['next_byte']+20)])
 
@@ -438,7 +451,7 @@ def find_zones_data(byte_list, num_zones, offset):
             continue
 
         next_byte = (counter + 1) * 4
-        zone_marker = construct.Float32l.parse(byte_list[first_byte:next_byte])
+        zone_marker = _f32(byte_list[first_byte:next_byte])
         if zone_marker == 299.0:
             count_zones = count_zones + 1
             zone_makers.append(first_byte + offset)
@@ -478,30 +491,30 @@ def read_zones(byte_list, zone_markers, header, binary_file):
         var_dict = {}
         for name in var_names:
             end_byte = start_byte + 4
-            var_dict[name] = construct.Int32ul.parse(byte_list[start_byte:end_byte])
+            var_dict[name] = _i32u(byte_list[start_byte:end_byte])
             start_byte = end_byte
         zone_data['VarDict'] = var_dict
 
-        zone_data['PassiveVars'] = construct.Int32ul.parse(byte_list[start_byte:start_byte + 4])
+        zone_data['PassiveVars'] = _i32u(byte_list[start_byte:start_byte + 4])
         if zone_data['PassiveVars']  != 0:
             passive_var_dict={}
             for name in var_names:
                 end_byte = start_byte + 4
-                passive_var_dict[name] = construct.Int32ul.parse(byte_list[start_byte:end_byte])
+                passive_var_dict[name] = _i32u(byte_list[start_byte:end_byte])
                 start_byte = end_byte
             zone_data['PassiveVarDict'] = passive_var_dict
 
-        zone_data['VarSharing'] = construct.Int32ul.parse(byte_list[start_byte:start_byte + 4])
+        zone_data['VarSharing'] = _i32u(byte_list[start_byte:start_byte + 4])
         if zone_data['VarSharing']  != 0:
             share_var_dict={}
             for name in var_names:
                 end_byte = start_byte + 4
-                share_var_dict[name] = construct.Int32ul.parse(byte_list[start_byte:end_byte])
+                share_var_dict[name] = _i32u(byte_list[start_byte:end_byte])
                 start_byte = end_byte
             zone_data['ShareVarDict'] = share_var_dict
 
 
-        zone_data['ConnSharing'] = construct.Int32ul.parse(byte_list[start_byte:start_byte + 4])
+        zone_data['ConnSharing'] = _i32u(byte_list[start_byte:start_byte + 4])
         start_byte=start_byte+4
         non_passive_non_shared = list()
 
@@ -525,11 +538,11 @@ def read_zones(byte_list, zone_markers, header, binary_file):
         start_byte=start_byte+4+4
         for var_with_min_max in non_passive_non_shared:
             end_byte = start_byte + 8
-            min_val[var_with_min_max] = construct.Float64l.parse(byte_list[start_byte:end_byte])
+            min_val[var_with_min_max] = _f64(byte_list[start_byte:end_byte])
             start_byte = end_byte
 
             end_byte = start_byte + 8
-            max_val[var_with_min_max] = construct.Float64l.parse(byte_list[start_byte:end_byte])
+            max_val[var_with_min_max] = _f64(byte_list[start_byte:end_byte])
             start_byte = end_byte
 
         logging.debug('start_data_list')
@@ -553,9 +566,15 @@ def read_zones(byte_list, zone_markers, header, binary_file):
         for name in var_names:
             logging.debug('StartByte')
             logging.debug(start_byte)
-            data = np.frombuffer(byte_list, dtype='float32',
+            if np is not None:
+                data = np.frombuffer(byte_list, dtype='float32',
                                       count=Imax * Jmax * Kmax,
                                       offset=start_byte)
+            else:
+                data = [
+                    struct.unpack_from('<f', byte_list, start_byte + 4 * i)[0]
+                    for i in range(Imax * Jmax * Kmax)
+                ]
             start_byte = start_byte + 4 * Imax * Jmax * Kmax
             zone_data[name] = data
 
